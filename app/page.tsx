@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Briefcase } from "lucide-react"
+import { Plus, Briefcase, MapPin, Building2, ListFilter } from "lucide-react"
 import { CompanyCard, type Company } from "@/components/company-card"
 import { AddCompanyModal } from "@/components/add-company-modal"
 
@@ -10,6 +10,7 @@ export default function Home() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [isMounted, setIsMounted] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null)
 
   // Hydration handling and loading from localStorage
   useEffect(() => {
@@ -24,14 +25,41 @@ export default function Home() {
     }
   }, [])
 
-  const handleAddCompany = (name: string, url: string) => {
-    const newCompany: Company = {
-      id: crypto.randomUUID(),
-      name,
-      url,
-      addedAt: new Date().toISOString(),
+  const handleSaveCompany = (
+    name: string,
+    url: string,
+    location?: string,
+    hiringAgency?: string
+  ) => {
+    let updated: Company[]
+
+    if (editingCompany) {
+      // Edit existing company
+      updated = companies.map((c) =>
+        c.id === editingCompany.id
+          ? {
+              ...c,
+              name,
+              url,
+              location: location || undefined,
+              hiringAgency: hiringAgency || undefined,
+            }
+          : c
+      )
+      setEditingCompany(null)
+    } else {
+      // Add new company
+      const newCompany: Company = {
+        id: crypto.randomUUID(),
+        name,
+        url,
+        location: location || undefined,
+        hiringAgency: hiringAgency || undefined,
+        addedAt: new Date().toISOString(),
+      }
+      updated = [newCompany, ...companies]
     }
-    const updated = [newCompany, ...companies]
+
     setCompanies(updated)
     localStorage.setItem("career_tracker_companies", JSON.stringify(updated))
   }
@@ -41,6 +69,82 @@ export default function Home() {
     setCompanies(updated)
     localStorage.setItem("career_tracker_companies", JSON.stringify(updated))
   }
+
+  const handleEditClick = (company: Company) => {
+    setEditingCompany(company)
+    setIsModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setEditingCompany(null)
+  }
+
+  // Extract unique locations and agencies from current list of companies
+  const existingLocations = useMemo(() => {
+    const locs = companies.map((c) => c.location?.trim()).filter(Boolean) as string[]
+    return Array.from(new Set(locs)).sort()
+  }, [companies])
+
+  const existingHiringAgencies = useMemo(() => {
+    const agencies = companies.map((c) => c.hiringAgency?.trim()).filter(Boolean) as string[]
+    return Array.from(new Set(agencies)).sort()
+  }, [companies])
+
+  // Group and sort companies: Location first (alphabetical), then Hiring Agency (alphabetical, Direct first)
+  const sortedGroupedCompanies = useMemo(() => {
+    const groups: { [location: string]: { [agency: string]: Company[] } } = {}
+
+    companies.forEach((company) => {
+      const loc = company.location?.trim() || "Unspecified Location"
+      const agency = company.hiringAgency?.trim() || "Direct Application"
+
+      if (!groups[loc]) {
+        groups[loc] = {}
+      }
+      if (!groups[loc][agency]) {
+        groups[loc][agency] = []
+      }
+      groups[loc][agency].push(company)
+    })
+
+    // Sort locations: Alphabetical, putting "Unspecified Location" at the very end
+    const sortedLocations = Object.keys(groups).sort((a, b) => {
+      if (a === "Unspecified Location") return 1
+      if (b === "Unspecified Location") return -1
+      return a.localeCompare(b)
+    })
+
+    return sortedLocations.map((loc) => {
+      const agencyGroups = groups[loc]
+      
+      // Sort agencies: "Direct Application" first, others alphabetical
+      const sortedAgencies = Object.keys(agencyGroups).sort((a, b) => {
+        if (a === "Direct Application") return -1
+        if (b === "Direct Application") return 1
+        return a.localeCompare(b)
+      })
+
+      const agenciesList = sortedAgencies.map((agency) => {
+        // Sort jobs inside each agency group by date added (newest first)
+        const sortedJobs = [...agencyGroups[agency]].sort(
+          (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
+        )
+        return {
+          agency,
+          companies: sortedJobs,
+        }
+      })
+
+      const totalJobsInLocation = agenciesList.reduce((sum, ag) => sum + ag.companies.length, 0)
+
+      return {
+        location: loc,
+        totalJobs: totalJobsInLocation,
+        agencies: agenciesList,
+      }
+    })
+  }, [companies])
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-neutral-800 selection:text-neutral-250">
@@ -103,14 +207,55 @@ export default function Home() {
             </Button>
           </div>
         ) : (
-          // Responsive Card Grid (3 columns desktop, 2 tablet, 1 mobile)
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {companies.map((company) => (
-              <CompanyCard
-                key={company.id}
-                company={company}
-                onDelete={handleDeleteCompany}
-              />
+          // Grouped Display Layout
+          <div className="space-y-12">
+            {/* List sorting notification banner */}
+            <div className="flex items-center gap-2 text-xs text-neutral-500 bg-neutral-900/20 border border-neutral-900 px-4 py-2.5 rounded-lg max-w-fit">
+              <ListFilter className="h-3.5 w-3.5" />
+              <span>Automatically sorted by <strong>Location</strong> and grouped by <strong>Hiring Agency</strong>.</span>
+            </div>
+
+            {sortedGroupedCompanies.map((locGroup) => (
+              <section key={locGroup.location} className="space-y-6">
+                {/* Location Heading */}
+                <div className="flex items-center justify-between border-b border-neutral-900 pb-3">
+                  <h2 className="text-xl font-semibold text-neutral-250 flex items-center gap-2">
+                    <MapPin className="h-5 w-5 text-neutral-500 shrink-0" />
+                    <span>{locGroup.location}</span>
+                  </h2>
+                  <span className="text-xs bg-neutral-900 text-neutral-400 border border-neutral-850 px-2.5 py-0.5 rounded-full font-medium">
+                    {locGroup.totalJobs} {locGroup.totalJobs === 1 ? "job" : "jobs"}
+                  </span>
+                </div>
+
+                {/* Subgroups (Agencies) under this location */}
+                <div className="space-y-8 pl-1 sm:pl-3">
+                  {locGroup.agencies.map((agencyGroup) => (
+                    <div key={agencyGroup.agency} className="space-y-4">
+                      {/* Agency Subheading */}
+                      <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <Building2 className="h-3.5 w-3.5 shrink-0" />
+                        <span>{agencyGroup.agency}</span>
+                        <span className="text-neutral-600 font-normal lowercase">
+                          ({agencyGroup.companies.length} {agencyGroup.companies.length === 1 ? "job" : "jobs"})
+                        </span>
+                      </h3>
+
+                      {/* Jobs list grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {agencyGroup.companies.map((company) => (
+                          <CompanyCard
+                            key={company.id}
+                            company={company}
+                            onDelete={handleDeleteCompany}
+                            onEdit={handleEditClick}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}
@@ -123,12 +268,16 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* Modal Dialog */}
+      {/* Add/Edit Modal Dialog */}
       <AddCompanyModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleAddCompany}
+        onClose={handleCloseModal}
+        onSave={handleSaveCompany}
+        editingCompany={editingCompany}
+        existingLocations={existingLocations}
+        existingHiringAgencies={existingHiringAgencies}
       />
     </div>
   )
 }
+
