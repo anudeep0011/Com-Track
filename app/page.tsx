@@ -29,7 +29,11 @@ export default function Home() {
     name: string,
     url: string,
     location?: string,
-    hiringAgency?: string
+    hiringAgency?: string,
+    appliedOn?: string,
+    contactPerson?: string,
+    status?: string,
+    interviewDate?: string
   ) => {
     let updated: Company[]
 
@@ -43,6 +47,10 @@ export default function Home() {
               url,
               location: location || undefined,
               hiringAgency: hiringAgency || undefined,
+              appliedOn: appliedOn || undefined,
+              contactPerson: contactPerson || undefined,
+              status: status || undefined,
+              interviewDate: interviewDate || undefined,
             }
           : c
       )
@@ -55,6 +63,10 @@ export default function Home() {
         url,
         location: location || undefined,
         hiringAgency: hiringAgency || undefined,
+        appliedOn: appliedOn || undefined,
+        contactPerson: contactPerson || undefined,
+        status: status || undefined,
+        interviewDate: interviewDate || undefined,
         addedAt: new Date().toISOString(),
       }
       updated = [newCompany, ...companies]

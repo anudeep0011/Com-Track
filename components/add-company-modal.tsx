@@ -16,7 +16,16 @@ import { type Company } from "./company-card"
 interface AddCompanyModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (name: string, url: string, location?: string, hiringAgency?: string) => void
+  onSave: (
+    name: string,
+    url: string,
+    location?: string,
+    hiringAgency?: string,
+    appliedOn?: string,
+    contactPerson?: string,
+    status?: string,
+    interviewDate?: string
+  ) => void
   editingCompany?: Company | null
   existingLocations: string[]
   existingHiringAgencies: string[]
@@ -32,16 +41,22 @@ export function AddCompanyModal({
 }: AddCompanyModalProps) {
   const [name, setName] = useState("")
   const [url, setUrl] = useState("")
-  
+
   // Location States
   const [locationMode, setLocationMode] = useState<"select" | "custom">("select")
   const [selectedLocation, setSelectedLocation] = useState("")
   const [customLocation, setCustomLocation] = useState("")
-  
+
   // Hiring Agency States
   const [hiringAgencyMode, setHiringAgencyMode] = useState<"select" | "custom">("select")
   const [selectedHiringAgency, setSelectedHiringAgency] = useState("")
   const [customHiringAgency, setCustomHiringAgency] = useState("")
+
+  // New Details States
+  const [status, setStatus] = useState("")
+  const [appliedOn, setAppliedOn] = useState("")
+  const [contactPerson, setContactPerson] = useState("")
+  const [interviewDate, setInterviewDate] = useState("")
 
   const [errors, setErrors] = useState<{
     name?: string
@@ -56,7 +71,11 @@ export function AddCompanyModal({
       if (editingCompany) {
         setName(editingCompany.name)
         setUrl(editingCompany.url)
-        
+        setStatus(editingCompany.status || "")
+        setAppliedOn(editingCompany.appliedOn || "")
+        setContactPerson(editingCompany.contactPerson || "")
+        setInterviewDate(editingCompany.interviewDate || "")
+
         // Set location state
         const loc = editingCompany.location || ""
         if (loc) {
@@ -96,6 +115,10 @@ export function AddCompanyModal({
         // Reset states for a fresh add
         setName("")
         setUrl("")
+        setStatus("")
+        setAppliedOn("")
+        setContactPerson("")
+        setInterviewDate("")
         setLocationMode("select")
         setSelectedLocation("")
         setCustomLocation("")
@@ -143,13 +166,18 @@ export function AddCompanyModal({
     }
 
     const savedLocation = locationMode === "custom" ? customLocation.trim() : selectedLocation
-    const savedHiringAgency = hiringAgencyMode === "custom" ? customHiringAgency.trim() : selectedHiringAgency
+    const savedHiringAgency =
+      hiringAgencyMode === "custom" ? customHiringAgency.trim() : selectedHiringAgency
 
     onSave(
       name.trim(),
       url.trim(),
       savedLocation || undefined,
-      savedHiringAgency || undefined
+      savedHiringAgency || undefined,
+      appliedOn || undefined,
+      contactPerson.trim() || undefined,
+      status || undefined,
+      interviewDate || undefined
     )
     onClose()
   }
@@ -162,8 +190,8 @@ export function AddCompanyModal({
             {editingCompany ? "Edit Opportunity" : "Add Opportunity"}
           </DialogTitle>
           <DialogDescription className="text-sm text-neutral-400">
-            {editingCompany 
-              ? "Modify the details of this job opportunity." 
+            {editingCompany
+              ? "Modify the details of this job opportunity."
               : "Add a new job/company and its careers page URL."
             }
           </DialogDescription>
@@ -319,6 +347,68 @@ export function AddCompanyModal({
             )}
           </div>
 
+          {/* Job Status Option */}
+          <div className="space-y-1.5">
+            <label htmlFor="status" className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+              Job Status
+            </label>
+            <select
+              id="status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="bg-neutral-900 border border-neutral-800 text-neutral-100 focus-visible:ring-neutral-700 focus-visible:border-neutral-700 h-10 w-full rounded-md px-3 outline-none transition-colors duration-200"
+            >
+              <option value="">Select Status (Optional)</option>
+              <option value="Interested">Interested</option>
+              <option value="Applied">Applied</option>
+              <option value="Interviewing">Interviewing</option>
+              <option value="Offered">Offered</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+
+          {/* Date Fields Grid: Applied On & Interview Date */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label htmlFor="appliedOn" className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                Applied On
+              </label>
+              <Input
+                id="appliedOn"
+                type="date"
+                value={appliedOn}
+                onChange={(e) => setAppliedOn(e.target.value)}
+                className="bg-neutral-900 border-neutral-800 text-neutral-100 h-10 [color-scheme:dark]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="interviewDate" className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                Interview Date
+              </label>
+              <Input
+                id="interviewDate"
+                type="date"
+                value={interviewDate}
+                onChange={(e) => setInterviewDate(e.target.value)}
+                className="bg-neutral-900 border-neutral-800 text-neutral-100 h-10 [color-scheme:dark]"
+              />
+            </div>
+          </div>
+
+          {/* Contact Person */}
+          <div className="space-y-1.5">
+            <label htmlFor="contactPerson" className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+              Contacted To / Recruiter Contact
+            </label>
+            <Input
+              id="contactPerson"
+              placeholder="e.g. John Doe (Recruiter)"
+              value={contactPerson}
+              onChange={(e) => setContactPerson(e.target.value)}
+              className="bg-neutral-900 border-neutral-800 text-neutral-100 placeholder:text-neutral-500 h-10"
+            />
+          </div>
+
           <DialogFooter className="pt-4 flex flex-row items-center justify-end gap-2 border-t border-neutral-900">
             <Button
               type="button"
@@ -340,4 +430,5 @@ export function AddCompanyModal({
     </Dialog>
   )
 }
+
 
